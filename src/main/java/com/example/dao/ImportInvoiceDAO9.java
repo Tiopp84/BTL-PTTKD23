@@ -23,7 +23,7 @@ public class ImportInvoiceDAO9 extends DAO {
                 + "ORDER BY ii.createdAt DESC, ii.id DESC";
         List<ImportInvoice9> result = new ArrayList<>();
         try (Connection con = getConnection();
-             PreparedStatement ps = con.prepareStatement(sql)) {
+                PreparedStatement ps = con.prepareStatement(sql)) {
             ps.setDate(1, start);
             ps.setDate(2, Date.valueOf(end.toLocalDate().plusDays(1)));
             ps.setInt(3, supplierId);
@@ -39,13 +39,13 @@ public class ImportInvoiceDAO9 extends DAO {
     public ImportInvoice9 getById(int invoiceId) throws Exception {
         String sql = baseInvoiceSql() + " WHERE ii.id = ?";
         try (Connection con = getConnection();
-             PreparedStatement ps = con.prepareStatement(sql)) {
+                PreparedStatement ps = con.prepareStatement(sql)) {
             ps.setInt(1, invoiceId);
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
                     ImportInvoice9 invoice = toInvoice(rs, new ArrayList<>());
                     // DAO tạo phiếu trước, sau đó đóng gói từng chi tiết và gắn vào phiếu.
-                    invoice.getListImport().addAll(findDetails(con, invoiceId));
+                    invoice.getListImport().addAll(getImportDetails(con, invoiceId));
                     return invoice;
                 }
             }
@@ -79,7 +79,7 @@ public class ImportInvoiceDAO9 extends DAO {
                 rs.getDate("createdAt"), rs.getString("note"), staff, supplier, details);
     }
 
-    private List<ImportDetail9> findDetails(Connection con, int invoiceId) throws Exception {
+    private List<ImportDetail9> getImportDetails(Connection con, int invoiceId) throws Exception {
         String sql = "SELECT d.id, d.price, d.qty, m.id AS materialId, m.name, m.unit, "
                 + "m.description, m.stock FROM tblImportDetail9 d "
                 + "JOIN tblMaterial9 m ON m.id = d.materialId WHERE d.invoiceId = ? ORDER BY d.id";

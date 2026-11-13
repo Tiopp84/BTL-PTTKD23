@@ -45,7 +45,7 @@ Maven WAR, Java 17+, Jakarta Servlet 6, JSP/JSTL; chạy trên Tomcat 10.1+ ho�
 
 Đăng nhập quản lý dùng tài khoản `tblMember9` có `role = Manager`, `status = active` và mật khẩu PBKDF2. Mật khẩu thuần từ bản demo cũ không được chấp nhận.
 
-Dữ liệu mẫu trong `createTable.sql` hiện chỉ có món ăn và combo; muốn chạy hết luồng thống kê cần có nhà cung cấp, nhân viên kho, nguyên liệu, phiếu nhập và chi tiết tương ứng.
+`createTable.sql` có dữ liệu mẫu cho cả món ăn/combo và module thống kê nhà cung cấp: 3 nhà cung cấp, 2 nhân viên kho, 12 nguyên liệu, 6 phiếu nhập kèm chi tiết. Ngày phiếu nhập tính lùi từ ngày chạy script (3–60 ngày trước); khi demo chọn khoảng 90 ngày gần nhất để thấy đủ dữ liệu và thứ hạng Minh Anh > Đồng Xanh > Biển Đông.
 
 ## Giao diện
 

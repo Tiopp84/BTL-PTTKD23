@@ -237,3 +237,153 @@ WHERE NOT EXISTS (
   SELECT 1 FROM tblComboDetail9 cd
   WHERE cd.comboId = c.id AND cd.dishId = d.id
 );
+
+
+-- ================================================================
+-- DỮ LIỆU MẪU: Nhà cung cấp, nhân viên kho, nguyên liệu, phiếu nhập
+-- Phục vụ module Thống kê nhà cung cấp.
+-- Có thể chạy lại: mỗi bản ghi chỉ được thêm nếu chưa tồn tại.
+-- Ngày phiếu nhập tính lùi từ CURRENT_DATE nên luôn có dữ liệu gần đây;
+-- khi demo chọn khoảng "hôm nay - 90 ngày" đến "hôm nay".
+-- ================================================================
+
+-- Địa chỉ của nhà cung cấp và nhân viên kho
+INSERT INTO tblAddress9 (houseNumber, street, ward, city)
+SELECT seed.houseNumber, seed.street, seed.ward, seed.city
+FROM (
+  SELECT '12' AS houseNumber, 'Nguyễn Trãi' AS street,
+         'Phường Bến Thành' AS ward, 'TP. Hồ Chí Minh' AS city
+  UNION ALL SELECT '45', 'Lê Lợi', 'Phường 1', 'Đà Lạt'
+  UNION ALL SELECT '88', 'Trần Phú', 'Phường 6', 'Nha Trang'
+  UNION ALL SELECT '101', 'Nguyễn Văn Cừ', 'Phường 4', 'TP. Hồ Chí Minh'
+  UNION ALL SELECT '22', 'Hai Bà Trưng', 'Phường Tân Định', 'TP. Hồ Chí Minh'
+) AS seed
+WHERE NOT EXISTS (
+  SELECT 1 FROM tblAddress9 a
+  WHERE a.houseNumber = seed.houseNumber AND a.street = seed.street
+    AND a.ward = seed.ward AND a.city = seed.city
+);
+
+-- Nhà cung cấp
+INSERT INTO tblSupplier9 (name, phone, email, description, address)
+SELECT seed.name, seed.phone, seed.email, seed.description,
+       (SELECT a.id FROM tblAddress9 a
+        WHERE a.houseNumber = seed.houseNumber AND a.street = seed.street
+          AND a.ward = seed.ward AND a.city = seed.city
+        ORDER BY a.id LIMIT 1)
+FROM (
+  SELECT 'Công ty TNHH Thực phẩm Minh Anh' AS name, '0901234567' AS phone,
+         'minhanh@food.vn' AS email,
+         'Cung cấp thịt gà, thịt bò, trứng và gia vị.' AS description,
+         '12' AS houseNumber, 'Nguyễn Trãi' AS street,
+         'Phường Bến Thành' AS ward, 'TP. Hồ Chí Minh' AS city
+  UNION ALL SELECT 'Công ty CP Nông sản Đồng Xanh', '0912345678', 'dongxanh@farm.vn',
+         'Rau củ, gạo và trái cây tươi Đà Lạt.',
+         '45', 'Lê Lợi', 'Phường 1', 'Đà Lạt'
+  UNION ALL SELECT 'Cửa hàng Hải sản Biển Đông', '0987654321', 'biendong@seafood.vn',
+         'Hải sản tươi sống: cá lóc, tôm sú.',
+         '88', 'Trần Phú', 'Phường 6', 'Nha Trang'
+) AS seed
+WHERE NOT EXISTS (SELECT 1 FROM tblSupplier9 s WHERE s.name = seed.name);
+
+-- Nhân viên kho (dùng làm staffId của phiếu nhập).
+-- Mật khẩu là hash PBKDF2 của một chuỗi ngẫu nhiên, không dùng để đăng nhập.
+INSERT INTO tblMember9 (userName, password, email, phone, createdAt,
+                        firstName, lastName, status, role, address)
+SELECT seed.userName, seed.password, seed.email, seed.phone, CURRENT_DATE,
+       seed.firstName, seed.lastName, 'active', 'WarehouseStaff',
+       (SELECT a.id FROM tblAddress9 a
+        WHERE a.houseNumber = seed.houseNumber AND a.street = seed.street
+          AND a.ward = seed.ward AND a.city = seed.city
+        ORDER BY a.id LIMIT 1)
+FROM (
+  SELECT 'khohang1' AS userName,
+         'pbkdf2_sha256$600000$meE6/wxjfyhFwpK+LGjoLA==$8Lqf8NnMdC9Wo+Wrb2hDnYSweyPGLysv9GFTdteCFa8=' AS password,
+         'khohang1@restman.vn' AS email, '0901111111' AS phone,
+         'Nguyễn Văn' AS firstName, 'Kho' AS lastName,
+         '101' AS houseNumber, 'Nguyễn Văn Cừ' AS street,
+         'Phường 4' AS ward, 'TP. Hồ Chí Minh' AS city
+  UNION ALL SELECT 'khohang2',
+         'pbkdf2_sha256$600000$ChCMV4np56DsSqr2FPVCVg==$QTyAfO37dFWDe8BsJGEKO4gDXvMK+U7DOcoI1FdenKY=',
+         'khohang2@restman.vn', '0902222222',
+         'Trần Thị', 'Nhập',
+         '22', 'Hai Bà Trưng', 'Phường Tân Định', 'TP. Hồ Chí Minh'
+) AS seed
+WHERE NOT EXISTS (SELECT 1 FROM tblMember9 m WHERE m.userName = seed.userName);
+
+-- Nguyên liệu nhập kho
+INSERT INTO tblMaterial9 (name, unit, description, stock)
+SELECT seed.name, seed.unit, seed.description, seed.stock
+FROM (
+  SELECT 'Thịt gà' AS name, 'kg' AS unit, 'Thịt gà tươi, bảo quản mát.' AS description, 120 AS stock
+  UNION ALL SELECT 'Thịt bò', 'kg', 'Thịt bò nạc, dùng chế biến món xào.', 80
+  UNION ALL SELECT 'Cá lóc', 'kg', 'Cá lóc tươi, làm sạch.', 45
+  UNION ALL SELECT 'Tôm sú', 'kg', 'Tôm sú loại 1, còn sống.', 30
+  UNION ALL SELECT 'Rau muống', 'kg', 'Rau muống tươi, hái trong ngày.', 60
+  UNION ALL SELECT 'Cà chua', 'kg', 'Cà chua chín đỏ.', 40
+  UNION ALL SELECT 'Gạo tẻ', 'kg', 'Gạo tẻ thơm, hạt dài.', 250
+  UNION ALL SELECT 'Trứng gà', 'quả', 'Trứng gà công nghiệp.', 300
+  UNION ALL SELECT 'Dầu ăn', 'lít', 'Dầu ăn tinh luyện.', 50
+  UNION ALL SELECT 'Nước mắm', 'lít', 'Nước mắm cá cơm nguyên chất.', 35
+  UNION ALL SELECT 'Bún tươi', 'kg', 'Bún tươi sản xuất trong ngày.', 25
+  UNION ALL SELECT 'Chanh', 'kg', 'Chanh tươi, dùng pha nước.', 20
+) AS seed
+WHERE NOT EXISTS (SELECT 1 FROM tblMaterial9 m WHERE m.name = seed.name);
+
+-- Phiếu nhập (mỗi phiếu có note duy nhất để chạy lại không bị trùng)
+INSERT INTO tblImportInvoice9 (total, createdAt, note, supplierId, staffId)
+SELECT seed.total, DATE_SUB(CURRENT_DATE, INTERVAL seed.daysAgo DAY),
+       seed.note,
+       (SELECT s.id FROM tblSupplier9 s WHERE s.name = seed.supplierName ORDER BY s.id LIMIT 1),
+       (SELECT m.id FROM tblMember9 m WHERE m.userName = seed.staffUserName ORDER BY m.id LIMIT 1)
+FROM (
+  SELECT 'SEED-NCC-MA-01' AS note, 'Công ty TNHH Thực phẩm Minh Anh' AS supplierName,
+         'khohang1' AS staffUserName, 8 AS daysAgo,
+         4200000 AS total
+  UNION ALL SELECT 'SEED-NCC-MA-02', 'Công ty TNHH Thực phẩm Minh Anh',
+         'khohang2', 42, 1810000
+  UNION ALL SELECT 'SEED-NCC-DX-01', 'Công ty CP Nông sản Đồng Xanh',
+         'khohang1', 25, 1750000
+  UNION ALL SELECT 'SEED-NCC-DX-02', 'Công ty CP Nông sản Đồng Xanh',
+         'khohang2', 3, 980000
+  UNION ALL SELECT 'SEED-NCC-BD-01', 'Cửa hàng Hải sản Biển Đông',
+         'khohang1', 60, 2720000
+  UNION ALL SELECT 'SEED-NCC-BD-02', 'Cửa hàng Hải sản Biển Đông',
+         'khohang2', 15, 2410000
+) AS seed
+WHERE NOT EXISTS (SELECT 1 FROM tblImportInvoice9 ii WHERE ii.note = seed.note);
+
+-- Chi tiết phiếu nhập (price là đơn giá, qty là số lượng)
+INSERT INTO tblImportDetail9 (price, qty, invoiceId, materialId)
+SELECT seed.price, seed.qty, i.id, m.id
+FROM (
+  SELECT 'SEED-NCC-MA-01' AS note, 'Thịt gà' AS materialName, 70000 AS price, 20 AS qty
+  UNION ALL SELECT 'SEED-NCC-MA-01', 'Thịt bò', 250000, 10
+  UNION ALL SELECT 'SEED-NCC-MA-01', 'Trứng gà', 3000, 100
+  UNION ALL SELECT 'SEED-NCC-MA-02', 'Thịt gà', 72000, 15
+  UNION ALL SELECT 'SEED-NCC-MA-02', 'Dầu ăn', 45000, 10
+  UNION ALL SELECT 'SEED-NCC-MA-02', 'Nước mắm', 35000, 8
+  UNION ALL SELECT 'SEED-NCC-DX-01', 'Rau muống', 15000, 30
+  UNION ALL SELECT 'SEED-NCC-DX-01', 'Cà chua', 20000, 20
+  UNION ALL SELECT 'SEED-NCC-DX-01', 'Gạo tẻ', 18000, 50
+  UNION ALL SELECT 'SEED-NCC-DX-02', 'Rau muống', 16000, 25
+  UNION ALL SELECT 'SEED-NCC-DX-02', 'Cà chua', 22000, 15
+  UNION ALL SELECT 'SEED-NCC-DX-02', 'Chanh', 25000, 10
+  UNION ALL SELECT 'SEED-NCC-BD-01', 'Cá lóc', 80000, 12
+  UNION ALL SELECT 'SEED-NCC-BD-01', 'Tôm sú', 220000, 8
+  UNION ALL SELECT 'SEED-NCC-BD-02', 'Cá lóc', 85000, 10
+  UNION ALL SELECT 'SEED-NCC-BD-02', 'Tôm sú', 230000, 6
+  UNION ALL SELECT 'SEED-NCC-BD-02', 'Nước mắm', 36000, 5
+) AS seed
+JOIN tblImportInvoice9 i ON i.note = seed.note
+JOIN tblMaterial9 m ON m.name = seed.materialName
+WHERE NOT EXISTS (
+  SELECT 1 FROM tblImportDetail9 d
+  WHERE d.invoiceId = i.id AND d.materialId = m.id
+);
+
+-- Kết quả kỳ vọng khi chọn khoảng 90 ngày gần nhất:
+--   Minh Anh : 163 đơn vị, 6.010.000 đ
+--   Đồng Xanh: 150 đơn vị, 2.730.000 đ
+--   Biển Đông:  41 đơn vị, 5.130.000 đ
+-- Thứ tự xếp hạng theo lượng nhập: Minh Anh > Đồng Xanh > Biển Đông.
